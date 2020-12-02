@@ -1,5 +1,4 @@
 use chrono::prelude::*;
-use gzlib::proto::pricing::*;
 use packman::*;
 use serde::{Deserialize, Serialize};
 use std::ops::Mul;
@@ -87,13 +86,25 @@ impl Default for HistoryItem {
     }
 }
 
+impl HistoryItem {
+    fn new(net_retail_price: u32, vat: VAT, gross_retail_price: u32, created_by: String) -> Self {
+        Self {
+            net_retail_price,
+            vat,
+            gross_retail_price,
+            created_by,
+            created_at: Utc::now(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Sku {
-    sku: u32,
-    net_retail_price: u32,
-    vat: VAT,
-    gross_retail_price: u32,
-    history: Vec<HistoryItem>,
+    pub sku: u32,
+    pub net_retail_price: u32,
+    pub vat: VAT,
+    pub gross_retail_price: u32,
+    pub history: Vec<HistoryItem>,
 }
 
 impl Default for Sku {
@@ -105,6 +116,50 @@ impl Default for Sku {
             gross_retail_price: 0,
             history: Vec::new(),
         }
+    }
+}
+
+impl Sku {
+    pub fn new(sku: u32) -> Self {
+        let mut _sku = Self::default();
+        _sku.sku = sku;
+        _sku
+    }
+    pub fn set_price(
+        &mut self,
+        net_retail_price: i32,
+        vat: VAT,
+        gross_retail_price: i32,
+        created_by: String,
+    ) -> Result<&Self, String> {
+        // Check prices positive integers
+        if net_retail_price < 0 || gross_retail_price < 0 {
+            return Err("A megadott árak csak pozitív egész számok lehetnek!".into());
+        }
+
+        // Check price
+        // net * VAT should be eq => gross
+        if (net_retail_price as u32 * vat) != gross_retail_price as u32 {
+            return Err(
+                "Ár hiba! A megadott nettó ár * ÁFA nem egyezik meg a bruttó árral!".into(),
+            );
+        }
+
+        // Set new prices
+        self.net_retail_price = net_retail_price as u32;
+        self.vat = vat;
+        self.gross_retail_price = gross_retail_price as u32;
+
+        // Set price history
+        self.history.push(HistoryItem::new(
+            net_retail_price as u32,
+            vat,
+            gross_retail_price as u32,
+            created_by,
+        ));
+
+        // Return the latest object reference
+        Ok(&self)
     }
 }
 
