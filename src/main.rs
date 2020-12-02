@@ -37,6 +37,19 @@ impl VAT {
     }
 }
 
+impl ToString for VAT {
+    fn to_string(&self) -> String {
+        match self {
+            VAT::AAM => "AAM".to_string(),
+            VAT::FAD => "FAD".to_string(),
+            VAT::TAM => "TAM".to_string(),
+            VAT::_5 => "5".to_string(),
+            VAT::_18 => "18".to_string(),
+            VAT::_27 => "27".to_string(),
+        }
+    }
+}
+
 impl Mul<VAT> for u32 {
     type Output = u32;
 
@@ -104,6 +117,6 @@ impl VecPackMember for Sku {
 }
 
 fn main() {
-    let db: VecPack<Sku> = VecPack::load_or_init(PathBuf::from("data/pricing"))
+    let mut db: VecPack<Sku> = VecPack::load_or_init(PathBuf::from("data/pricing"))
         .expect("Error while loading pricing db");
 }
