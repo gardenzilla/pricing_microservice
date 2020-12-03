@@ -3,7 +3,7 @@ use packman::*;
 use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub enum VAT {
     AAM,
     FAD,
@@ -159,7 +159,7 @@ impl Sku {
         ));
 
         // Return the latest object reference
-        Ok(&self)
+        Ok(self)
     }
 }
 
