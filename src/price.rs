@@ -70,7 +70,7 @@ pub struct HistoryItem {
     net_retail_price: u32,
     vat: VAT,
     gross_retail_price: u32,
-    created_by: String,
+    created_by: u32,
     created_at: DateTime<Utc>,
 }
 
@@ -80,14 +80,14 @@ impl Default for HistoryItem {
             net_retail_price: 0,
             vat: VAT::default(),
             gross_retail_price: 0,
-            created_by: "".into(),
+            created_by: 0,
             created_at: Utc::now(),
         }
     }
 }
 
 impl HistoryItem {
-    fn new(net_retail_price: u32, vat: VAT, gross_retail_price: u32, created_by: String) -> Self {
+    fn new(net_retail_price: u32, vat: VAT, gross_retail_price: u32, created_by: u32) -> Self {
         Self {
             net_retail_price,
             vat,
@@ -130,7 +130,7 @@ impl Sku {
         net_retail_price: i32,
         vat: VAT,
         gross_retail_price: i32,
-        created_by: String,
+        created_by: u32,
     ) -> Result<&Self, String> {
         // Check prices positive integers
         if net_retail_price < 0 || gross_retail_price < 0 {
