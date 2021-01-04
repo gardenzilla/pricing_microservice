@@ -7,6 +7,7 @@ release:
 	strip target/release/pricing_microservice
 
 build:
+	cargo update
 	cargo build
 
 dev:
