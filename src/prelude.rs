@@ -1,3 +1,7 @@
+use gzlib::proto::pricing::PriceObject;
+
+use crate::price::Sku;
+
 pub enum ServiceError {
   InternalError(String),
   NotFound(String),
@@ -65,5 +69,16 @@ pub type ServiceResult<T> = Result<T, ServiceError>;
 impl From<std::env::VarError> for ServiceError {
   fn from(error: std::env::VarError) -> Self {
     ServiceError::internal_error(&format!("ENV KEY NOT FOUND. {}", error))
+  }
+}
+
+impl From<Sku> for PriceObject {
+  fn from(s: Sku) -> Self {
+    Self {
+      sku: s.sku,
+      price_net_retail: s.net_retail_price as i32,
+      vat: s.vat.to_string(),
+      price_gross_retail: s.gross_retail_price as i32,
+    }
   }
 }

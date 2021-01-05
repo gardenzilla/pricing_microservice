@@ -67,11 +67,11 @@ impl Mul<VAT> for u32 {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct HistoryItem {
-  net_retail_price: u32,
-  vat: VAT,
-  gross_retail_price: u32,
-  created_by: u32,
-  created_at: DateTime<Utc>,
+  pub net_retail_price: u32,
+  pub vat: VAT,
+  pub gross_retail_price: u32,
+  pub created_by: u32,
+  pub created_at: DateTime<Utc>,
 }
 
 impl Default for HistoryItem {
