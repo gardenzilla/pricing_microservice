@@ -1,4 +1,3 @@
-ARG package_name=pricing_microservice
 FROM debian:buster-slim
 WORKDIR /usr/local/bin
 COPY ./target/release/pricing_microservice /usr/local/bin/pricing_microservice
