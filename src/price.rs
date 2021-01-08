@@ -127,32 +127,27 @@ impl Sku {
   }
   pub fn set_price(
     &mut self,
-    net_retail_price: i32,
+    net_retail_price: u32,
     vat: VAT,
-    gross_retail_price: i32,
+    gross_retail_price: u32,
     created_by: u32,
   ) -> Result<&Self, String> {
-    // Check prices positive integers
-    if net_retail_price < 0 || gross_retail_price < 0 {
-      return Err("A megadott árak csak pozitív egész számok lehetnek!".into());
-    }
-
     // Check price
     // net * VAT should be eq => gross
-    if (net_retail_price as u32 * vat) != gross_retail_price as u32 {
+    if (net_retail_price * vat) != gross_retail_price {
       return Err("Ár hiba! A megadott nettó ár * ÁFA nem egyezik meg a bruttó árral!".into());
     }
 
     // Set new prices
-    self.net_retail_price = net_retail_price as u32;
+    self.net_retail_price = net_retail_price;
     self.vat = vat;
-    self.gross_retail_price = gross_retail_price as u32;
+    self.gross_retail_price = gross_retail_price;
 
     // Set price history
     self.history.push(HistoryItem::new(
-      net_retail_price as u32,
+      net_retail_price,
       vat,
-      gross_retail_price as u32,
+      gross_retail_price,
       created_by,
     ));
 

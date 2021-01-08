@@ -76,9 +76,9 @@ impl From<Sku> for PriceObject {
   fn from(s: Sku) -> Self {
     Self {
       sku: s.sku,
-      price_net_retail: s.net_retail_price as i32,
+      price_net_retail: s.net_retail_price,
       vat: s.vat.to_string(),
-      price_gross_retail: s.gross_retail_price as i32,
+      price_gross_retail: s.gross_retail_price,
     }
   }
 }
@@ -86,9 +86,9 @@ impl From<Sku> for PriceObject {
 impl From<HistoryItem> for PriceHistoryObject {
   fn from(phi: HistoryItem) -> Self {
     Self {
-      price_net_retail: phi.net_retail_price as i32,
+      price_net_retail: phi.net_retail_price,
       vat: phi.vat.to_string(),
-      price_gross_retail: phi.gross_retail_price as i32,
+      price_gross_retail: phi.gross_retail_price,
       created_at: phi.created_at.to_string(),
       created_by: phi.created_by,
     }
