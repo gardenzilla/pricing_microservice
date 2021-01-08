@@ -1,6 +1,6 @@
-use gzlib::proto::pricing::PriceObject;
+use gzlib::proto::pricing::{PriceHistoryObject, PriceObject};
 
-use crate::price::Sku;
+use crate::price::{HistoryItem, Sku};
 
 pub enum ServiceError {
   InternalError(String),
@@ -79,6 +79,18 @@ impl From<Sku> for PriceObject {
       price_net_retail: s.net_retail_price as i32,
       vat: s.vat.to_string(),
       price_gross_retail: s.gross_retail_price as i32,
+    }
+  }
+}
+
+impl From<HistoryItem> for PriceHistoryObject {
+  fn from(phi: HistoryItem) -> Self {
+    Self {
+      price_net_retail: phi.net_retail_price as i32,
+      vat: phi.vat.to_string(),
+      price_gross_retail: phi.gross_retail_price as i32,
+      created_at: phi.created_at.to_string(),
+      created_by: phi.created_by,
     }
   }
 }

@@ -98,6 +98,20 @@ impl PricingService {
       .collect::<Vec<u32>>();
     Ok(res)
   }
+  // Get price history items
+  async fn get_price_history(&self, r: GetPriceRequest) -> ServiceResult<Vec<PriceHistoryObject>> {
+    let res = self
+      .skus
+      .lock()
+      .await
+      .find_id(&r.sku)?
+      .unpack()
+      .history
+      .iter()
+      .map(|phi| phi.clone().into())
+      .collect::<Vec<PriceHistoryObject>>();
+    Ok(res)
+  }
 }
 
 #[tonic::async_trait]
@@ -118,6 +132,25 @@ impl Pricing for PricingService {
   ) -> Result<Response<PriceObject>, Status> {
     let res = self.get_price(request.into_inner()).await?;
     Ok(Response::new(res))
+  }
+
+  type GetPriceHistoryStream = tokio::sync::mpsc::Receiver<Result<PriceHistoryObject, Status>>;
+
+  async fn get_price_history(
+    &self,
+    request: Request<GetPriceRequest>,
+  ) -> Result<Response<Self::GetPriceHistoryStream>, Status> {
+    // Create channels
+    let (mut tx, rx) = tokio::sync::mpsc::channel(4);
+    // Get found price objects
+    let res = self.get_price_history(request.into_inner()).await?;
+    // Send found price_objects through the channel
+    for pho in res.into_iter() {
+      tx.send(Ok(pho))
+        .await
+        .map_err(|_| Status::internal("Error while sending price bulk over channel"))?
+    }
+    return Ok(Response::new(rx));
   }
 
   async fn get_price_bulk(
