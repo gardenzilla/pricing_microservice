@@ -89,7 +89,7 @@ impl From<HistoryItem> for PriceHistoryObject {
       price_net_retail: phi.net_retail_price,
       vat: phi.vat.to_string(),
       price_gross_retail: phi.gross_retail_price,
-      created_at: phi.created_at.to_string(),
+      created_at: phi.created_at.to_rfc3339(),
       created_by: phi.created_by,
     }
   }
