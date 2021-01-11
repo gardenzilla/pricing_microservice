@@ -145,11 +145,11 @@ impl Pricing for PricingService {
     // Get found price objects
     let res = self.get_price_history(request.into_inner()).await?;
     // Send found price_objects through the channel
-    for pho in res.into_iter() {
-      tx.send(Ok(pho))
-        .await
-        .map_err(|_| Status::internal("Error while sending price bulk over channel"))?
-    }
+    tokio::spawn(async move {
+      for pho in res.into_iter() {
+        tx.send(Ok(pho)).await.unwrap();
+      }
+    });
     return Ok(Response::new(rx));
   }
 
@@ -162,11 +162,11 @@ impl Pricing for PricingService {
     // Get found price objects
     let res = self.get_price_bulk(request.into_inner()).await?;
     // Send found price_objects through the channel
-    for price_object in res.into_iter() {
-      tx.send(Ok(price_object))
-        .await
-        .map_err(|_| Status::internal("Error while sending price bulk over channel"))?
-    }
+    tokio::spawn(async move {
+      for ots in res.into_iter() {
+        tx.send(Ok(ots)).await.unwrap();
+      }
+    });
     return Ok(Response::new(rx));
   }
 
