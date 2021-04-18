@@ -94,3 +94,12 @@ impl From<HistoryItem> for PriceHistoryObject {
     }
   }
 }
+
+// Helper to load service address from env
+pub fn service_address(service_name: &'static str) -> String {
+  let addr = std::env::var(service_name).expect(&format!(
+    "Could not get service address for {}",
+    service_name
+  ));
+  format!("http://{}", addr)
+}

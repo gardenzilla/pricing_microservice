@@ -1,10 +1,14 @@
 use chrono::{DateTime, Utc};
-use gzlib::proto::pricing::pricing_server::*;
-use gzlib::proto::pricing::*;
+use gzlib::proto::{pricing::pricing_server::*, upl::upl_client::UplClient};
+use gzlib::proto::{pricing::*, upl::SetSkuPriceRequest};
 use packman::*;
 use std::{env, path::PathBuf};
 use tokio::sync::{oneshot, Mutex};
-use tonic::{transport::Server, Request, Response, Status};
+use tokio_stream::wrappers::ReceiverStream;
+use tonic::{
+  transport::{Channel, Server},
+  Request, Response, Status,
+};
 
 mod prelude;
 mod price;
@@ -13,46 +17,66 @@ use prelude::*;
 
 struct PricingService {
   skus: Mutex<VecPack<price::Sku>>,
+  client_upl: Mutex<UplClient<Channel>>,
 }
 
 impl PricingService {
   // Init PricingService with the given DB
-  fn init(db: VecPack<price::Sku>) -> Self {
+  fn init(db: VecPack<price::Sku>, upl_client: UplClient<Channel>) -> Self {
     Self {
       skus: Mutex::new(db),
+      client_upl: Mutex::new(upl_client),
     }
   }
   // Set price
   async fn set_price(&self, p: SetPriceRequest) -> ServiceResult<PriceObject> {
     // If the sku has already a price set
-    if let Ok(sku_object) = self.skus.lock().await.find_id_mut(&p.sku) {
-      match sku_object.as_mut().unpack().set_price(
-        p.price_net_retail,
-        price::VAT::from_str(&p.vat).map_err(|e| ServiceError::bad_request(&e))?,
-        p.price_gross_retail,
-        p.created_by,
-      ) {
-        Ok(res) => {
-          return Ok(res.clone().into());
+    let sku = match self.skus.lock().await.find_id_mut(&p.sku) {
+      Ok(sku_object) => {
+        match sku_object.as_mut().unpack().set_price(
+          p.price_net_retail,
+          price::VAT::from_str(&p.vat).map_err(|e| ServiceError::bad_request(&e))?,
+          p.price_gross_retail,
+          p.created_by,
+        ) {
+          Ok(res) => res.clone(),
+          Err(e) => return Err(ServiceError::bad_request(&e)),
         }
-        Err(e) => return Err(ServiceError::bad_request(&e)),
       }
-    }
-    // If the price is set for the first time
-    let mut new_sku = price::Sku::new(p.sku);
-    // Set new price to the new sku
-    new_sku
-      .set_price(
-        p.price_net_retail,
-        price::VAT::from_str(&p.vat).map_err(|e| ServiceError::bad_request(&e))?,
-        p.price_gross_retail,
-        p.created_by,
-      )
-      .map_err(|e| ServiceError::bad_request(&e))?;
-    // Save new sku into storage
-    self.skus.lock().await.insert(new_sku.clone())?;
+      Err(_) => {
+        // If the price is set for the first time
+        let mut new_sku = price::Sku::new(p.sku);
+        // Set new price to the new sku
+        new_sku
+          .set_price(
+            p.price_net_retail,
+            price::VAT::from_str(&p.vat).map_err(|e| ServiceError::bad_request(&e))?,
+            p.price_gross_retail,
+            p.created_by,
+          )
+          .map_err(|e| ServiceError::bad_request(&e))?;
+        // Save new sku into storage
+        self.skus.lock().await.insert(new_sku.clone())?;
+        new_sku
+      }
+    };
+
+    // Store prices to related UPLs
+    self
+      .client_upl
+      .lock()
+      .await
+      .set_sku_price(SetSkuPriceRequest {
+        sku: sku.sku,
+        net_price: sku.net_retail_price,
+        vat: sku.vat.to_string(),
+        gross_price: sku.gross_retail_price,
+      })
+      .await
+      .map_err(|e| ServiceError::bad_request(&e.to_string()))?;
+
     // Return new sku as PriceObject
-    Ok(new_sku.into())
+    Ok(sku.into())
   }
   // Tries to get price
   async fn get_price(&self, r: GetPriceRequest) -> ServiceResult<PriceObject> {
@@ -116,7 +140,7 @@ impl PricingService {
 
 #[tonic::async_trait]
 impl Pricing for PricingService {
-  type GetPriceBulkStream = tokio::sync::mpsc::Receiver<Result<PriceObject, Status>>;
+  type GetPriceBulkStream = ReceiverStream<Result<PriceObject, Status>>;
 
   async fn set_price(
     &self,
@@ -134,7 +158,7 @@ impl Pricing for PricingService {
     Ok(Response::new(res))
   }
 
-  type GetPriceHistoryStream = tokio::sync::mpsc::Receiver<Result<PriceHistoryObject, Status>>;
+  type GetPriceHistoryStream = ReceiverStream<Result<PriceHistoryObject, Status>>;
 
   async fn get_price_history(
     &self,
@@ -150,7 +174,7 @@ impl Pricing for PricingService {
         tx.send(Ok(pho)).await.unwrap();
       }
     });
-    return Ok(Response::new(rx));
+    return Ok(Response::new(ReceiverStream::new(rx)));
   }
 
   async fn get_price_bulk(
@@ -167,7 +191,7 @@ impl Pricing for PricingService {
         tx.send(Ok(ots)).await.unwrap();
       }
     });
-    return Ok(Response::new(rx));
+    return Ok(Response::new(ReceiverStream::new(rx)));
   }
 
   async fn get_latest_price_changes(
@@ -184,7 +208,11 @@ async fn main() -> prelude::ServiceResult<()> {
   let db: VecPack<price::Sku> =
     VecPack::load_or_init(PathBuf::from("data/prices")).expect("Error while loading price db");
 
-  let pricing_service = PricingService::init(db);
+  let client_upl = UplClient::connect(service_address("SERVICE_ADDR_UPL"))
+    .await
+    .expect("Could not connect to image processer service");
+
+  let pricing_service = PricingService::init(db, client_upl);
 
   let addr = env::var("SERVICE_ADDR_PRICING")
     .unwrap_or("[::1]:50061".into())
