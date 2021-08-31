@@ -8,9 +8,12 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug",
-      "program": "${workspaceFolder}/<your program>",
+      "program": "${workspaceRoot}/target/debug/${workspaceRootFolderName}",
       "args": [],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "SERVICE_ADDR_UPL": "[::1]:50064"
+      }
     }
   ]
 }

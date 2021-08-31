@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use gzlib::proto::{pricing::pricing_server::*, upl::upl_client::UplClient};
 use gzlib::proto::{pricing::*, upl::SetSkuPriceRequest};
 use packman::*;
+use price::Sku;
 use std::{env, path::PathBuf};
 use tokio::sync::{oneshot, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
@@ -30,6 +31,7 @@ impl PricingService {
   }
   // Set price
   async fn set_price(&self, p: SetPriceRequest) -> ServiceResult<PriceObject> {
+    let mut first_time_sku: Option<Sku> = None;
     // If the sku has already a price set
     let sku = match self.skus.lock().await.find_id_mut(&p.sku) {
       Ok(sku_object) => {
@@ -55,11 +57,17 @@ impl PricingService {
             p.created_by,
           )
           .map_err(|e| ServiceError::bad_request(&e))?;
-        // Save new sku into storage
-        self.skus.lock().await.insert(new_sku.clone())?;
+        first_time_sku = Some(new_sku.clone());
         new_sku
       }
     };
+
+    // Check if we have already a price obecjt for the requested sku
+    match first_time_sku {
+      // Store first time price sku if needed
+      Some(new_sku) => self.skus.lock().await.insert(new_sku)?,
+      None => (), // Do nothing
+    }
 
     // Store prices to related UPLs
     self
